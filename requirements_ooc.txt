@@ -1,0 +1,7 @@
+# Additional / explicit dependencies for the out-of-core pipeline.
+# The OOC pipeline uses only scikit-learn's incremental learning support
+# (SGDClassifier.partial_fit) — no river or other streaming-ML library needed.
+pandas
+numpy
+scikit-learn
+joblib

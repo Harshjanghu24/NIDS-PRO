@@ -1,0 +1,37 @@
+# Virtual environment
+venv/
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Version control
+.git/
+
+# Raw dataset files (not needed at runtime)
+NSL_Dataset/*.txt
+
+# Jupyter artifacts
+.ipynb_checkpoints/
+
+# Dev-time outputs
+results/
+
+# Temp / scratch files
+tempCodeRunnerFile.py
+sample_upload.csv
+
+# Out-of-core pipeline files (dev only)
+requirements_ooc.txt
+preprocessing_ooc.py
+train_model_ooc.py
+model_ooc.pkl
+preprocessor_ooc.pkl
+
+# Training & EDA scripts (dev only)
+eda.py
+train_model.py
+
+# Docker meta
+Dockerfile
+.dockerignore

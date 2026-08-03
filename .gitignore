@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+NSL_Dataset/*.txt
+
+*.pkl
+tempCodeRunnerFile.py
+sample_upload.csv

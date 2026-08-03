@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Upload network traffic data for intrusion detection analysis." />
+  <title>Network Intrusion Detection System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Spinner keyframes */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid rgba(255,255,255,0.15);
+      border-top-color: #22d3ee;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    /* Smooth fade-in for results */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeInUp 0.45s ease-out both; }
+
+    /* Scrollable table wrapper */
+    .table-scroll {
+      max-height: 380px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.25) transparent;
+    }
+    .table-scroll::-webkit-scrollbar { width: 6px; }
+    .table-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.25);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 flex items-start justify-center px-4 py-12">
+
+  <div class="w-full max-w-3xl space-y-8">
+
+    <!-- Upload Card -->
+    <div class="w-full max-w-md mx-auto bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-8">
+      <h1 class="text-2xl font-bold text-center text-white mb-6">
+        🛡️ Network Intrusion Detection System
+      </h1>
+
+      <form
+        id="upload-form"
+        action="/predict"
+        method="POST"
+        enctype="multipart/form-data"
+        class="space-y-5"
+      >
+        <!-- File Input -->
+        <label
+          class="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-cyan-400/50 rounded-xl cursor-pointer hover:border-cyan-300 transition-colors bg-white/5"
+        >
+          <svg class="w-10 h-10 text-cyan-400 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775
+                     5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752
+                     3.752 0 0 1 18 19.5H6.75Z" />
+          </svg>
+          <span id="file-label" class="text-sm text-gray-300">
+            Drop a <strong>.csv</strong> or <strong>.txt</strong> file here, or click to browse
+          </span>
+          <input
+            id="file-input"
+            type="file"
+            name="file"
+            accept=".csv,.txt"
+            class="hidden"
+          />
+        </label>
+
+        <!-- Submit Button -->
+        <button
+          id="submit-btn"
+          type="submit"
+          class="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-600
+                 hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/25
+                 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Upload &amp; Analyse
+        </button>
+      </form>
+    </div>
+
+    <!-- Results Placeholder -->
+    <div id="results" class="mt-2"></div>
+  </div>
+
+  <script>
+    /* ── Colour mapping ─────────────────────────────────────── */
+    const CATEGORY_COLORS = {
+      Normal: { bg: "#22c55e", light: "rgba(34,197,94,0.12)",  text: "#166534" },
+      DOS:    { bg: "#ef4444", light: "rgba(239,68,68,0.12)",   text: "#991b1b" },
+      Dos:    { bg: "#ef4444", light: "rgba(239,68,68,0.12)",   text: "#991b1b" },
+      PROBE:  { bg: "#f97316", light: "rgba(249,115,22,0.12)",  text: "#9a3412" },
+      Probe:  { bg: "#f97316", light: "rgba(249,115,22,0.12)",  text: "#9a3412" },
+      R2L:    { bg: "#a855f7", light: "rgba(168,85,247,0.12)",  text: "#6b21a8" },
+      U2R:    { bg: "#7f1d1d", light: "rgba(127,29,29,0.14)",   text: "#450a0a" },
+    };
+    const DEFAULT_COLOR = { bg: "#64748b", light: "rgba(100,116,139,0.12)", text: "#1e293b" };
+
+    function colorFor(cat) {
+      return CATEGORY_COLORS[cat] || CATEGORY_COLORS[cat.toUpperCase()] || DEFAULT_COLOR;
+    }
+
+    /* ── DOM refs ────────────────────────────────────────────── */
+    const form       = document.getElementById("upload-form");
+    const submitBtn  = document.getElementById("submit-btn");
+    const fileInput  = document.getElementById("file-input");
+    const fileLabel  = document.getElementById("file-label");
+    const resultsDiv = document.getElementById("results");
+
+    // Show chosen filename
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files.length > 0) {
+        fileLabel.textContent = fileInput.files[0].name;
+      }
+    });
+
+    /* ── Form submission via fetch ───────────────────────────── */
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      // Validate a file is selected
+      if (!fileInput.files.length) {
+        showError("Please select a file before uploading.");
+        return;
+      }
+
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Uploading…";
+      resultsDiv.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-16 fade-in">
+          <div class="spinner mb-4"></div>
+          <p class="text-gray-300 text-sm font-medium tracking-wide">Analysing your data…</p>
+        </div>`;
+
+      try {
+        const fd   = new FormData(form);
+        const resp = await fetch("/predict", { method: "POST", body: fd });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          showError(data.error || data.message || `Server responded with ${resp.status}`);
+          return;
+        }
+
+        renderResults(data);
+      } catch (err) {
+        showError("Network error — could not reach the server. " + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Upload & Analyse";
+      }
+    });
+
+    /* ── Error display ───────────────────────────────────────── */
+    function showError(msg) {
+      resultsDiv.innerHTML = `
+        <div class="fade-in bg-red-500/15 border border-red-500/40 rounded-xl p-5 text-red-300 text-sm leading-relaxed">
+          <div class="flex items-center gap-2 mb-1">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0
+                       2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697
+                       16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+            </svg>
+            <strong class="text-red-200">Error</strong>
+          </div>
+          ${escapeHtml(msg)}
+        </div>`;
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    /* ── Render results ──────────────────────────────────────── */
+    let chartInstance = null;
+
+    function renderResults(data) {
+      const { summary, predictions } = data;
+      const categories = Object.keys(summary);
+
+      // ── Summary badges ──
+      let badgesHtml = categories.map(cat => {
+        const c = colorFor(cat);
+        const s = summary[cat];
+        return `
+          <div class="flex items-center gap-3 bg-white/10 backdrop-blur rounded-xl px-4 py-3 border border-white/10"
+               style="border-left: 4px solid ${c.bg}">
+            <div>
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold text-white"
+                    style="background:${c.bg}">${escapeHtml(cat)}</span>
+            </div>
+            <div class="text-right ml-auto">
+              <p class="text-white text-lg font-bold leading-tight">${s.count}</p>
+              <p class="text-gray-400 text-xs">${s.percentage.toFixed(1)}%</p>
+            </div>
+          </div>`;
+      }).join("");
+
+      // ── Predictions table rows ──
+      let tableRows = predictions.map(p => {
+        const c = colorFor(p.predicted_category);
+        return `
+          <tr style="background:${c.light}">
+            <td class="px-4 py-2 text-gray-300 text-sm border-b border-white/5">${p.row}</td>
+            <td class="px-4 py-2 border-b border-white/5">
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold text-white"
+                    style="background:${c.bg}">${escapeHtml(p.predicted_category)}</span>
+            </td>
+          </tr>`;
+      }).join("");
+
+      // ── Assemble HTML ──
+      resultsDiv.innerHTML = `
+        <div class="space-y-6 fade-in">
+
+          <!-- Summary badges -->
+          <div>
+            <h2 class="text-white text-lg font-semibold mb-3">📊 Detection Summary</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              ${badgesHtml}
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="bg-white/10 backdrop-blur rounded-2xl border border-white/10 p-6">
+            <canvas id="results-chart" height="260"></canvas>
+          </div>
+
+          <!-- Predictions table -->
+          <div>
+            <h2 class="text-white text-lg font-semibold mb-3">📋 Row-by-Row Predictions
+              <span class="text-gray-400 text-sm font-normal">(${predictions.length} rows)</span>
+            </h2>
+            <div class="table-scroll bg-white/5 rounded-xl border border-white/10">
+              <table class="w-full text-left">
+                <thead class="sticky top-0 bg-gray-800/90 backdrop-blur">
+                  <tr>
+                    <th class="px-4 py-3 text-xs uppercase tracking-wider text-gray-400 font-semibold">Row</th>
+                    <th class="px-4 py-3 text-xs uppercase tracking-wider text-gray-400 font-semibold">Predicted Category</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRows}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Download CSV -->
+          <button id="download-csv-btn"
+            class="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-600
+                   hover:from-emerald-400 hover:to-teal-500 transition-all shadow-lg shadow-emerald-500/25
+                   active:scale-[0.98]">
+            ⬇️ Download Results as CSV
+          </button>
+        </div>`;
+
+      // ── Draw Chart.js doughnut ──
+      if (chartInstance) { chartInstance.destroy(); }
+
+      const ctx    = document.getElementById("results-chart").getContext("2d");
+      const labels = categories.map(c => c);
+      const values = categories.map(c => summary[c].percentage);
+      const bgCols = categories.map(c => colorFor(c).bg);
+
+      chartInstance = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: bgCols,
+            borderColor: "rgba(0,0,0,0.3)",
+            borderWidth: 2,
+            hoverOffset: 8,
+          }],
+        },
+        options: {
+          responsive: true,
+          cutout: "55%",
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { color: "#d1d5db", padding: 16, font: { size: 13 } },
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%`,
+              },
+            },
+          },
+        },
+      });
+
+      // ── CSV download handler ──
+      document.getElementById("download-csv-btn").addEventListener("click", () => {
+        downloadCSV(predictions);
+      });
+    }
+
+    /* ── CSV generation & download ───────────────────────────── */
+    function downloadCSV(predictions) {
+      const header = "row,predicted_category\n";
+      const rows   = predictions.map(p => `${p.row},${p.predicted_category}`).join("\n");
+      const blob   = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+      const url    = URL.createObjectURL(blob);
+      const a      = document.createElement("a");
+      a.href       = url;
+      a.download   = "nids_predictions.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
