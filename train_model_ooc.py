@@ -27,8 +27,11 @@ and true labels (strings, not feature arrays) so memory remains low.
 ==========================================================================
 """
 
-import time
 from collections import Counter
+import json
+import logging
+import os
+import time
 
 import joblib
 import numpy as np
@@ -36,12 +39,22 @@ import pandas as pd
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 
+from preprocessing import load_column_names
 from preprocessing_ooc import (
     CATEGORY_VALUES,
     RunningScaler,
     get_attack_category_map,
     prepare_chunk,
 )
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -55,22 +68,8 @@ N_EPOCHS = 5
 # The 5 target classes (alphabetical for deterministic ordering)
 ALL_CLASSES = sorted(set(get_attack_category_map().values()))
 
-# Column names (41 features + attack_type + difficulty_level)
-COLUMN_NAMES = [
-    "duration", "protocol_type", "service", "flag", "src_bytes",
-    "dst_bytes", "land", "wrong_fragment", "urgent", "hot",
-    "num_failed_logins", "logged_in", "num_compromised", "root_shell",
-    "su_attempted", "num_root", "num_file_creations", "num_shells",
-    "num_access_files", "num_outbound_cmds", "is_host_login",
-    "is_guest_login", "count", "srv_count", "serror_rate",
-    "srv_serror_rate", "rerror_rate", "srv_rerror_rate", "same_srv_rate",
-    "diff_srv_rate", "srv_diff_host_rate", "dst_host_count",
-    "dst_host_srv_count", "dst_host_same_srv_rate",
-    "dst_host_diff_srv_rate", "dst_host_same_src_port_rate",
-    "dst_host_srv_diff_host_rate", "dst_host_serror_rate",
-    "dst_host_srv_serror_rate", "dst_host_rerror_rate",
-    "dst_host_srv_rerror_rate", "attack_type", "difficulty_level",
-]
+# Column names imported from the shared preprocessing module
+COLUMN_NAMES = load_column_names()
 
 
 # ---------------------------------------------------------------------------
@@ -95,9 +94,9 @@ def main() -> None:
     t_start = time.perf_counter()
 
     # === PASS 1 — Fit the running scaler =================================
-    print("=" * 60)
-    print("PASS 1 / 2 — Fitting RunningScaler on training data")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("PASS 1 / 2 — Fitting RunningScaler on training data")
+    logger.info("=" * 60)
 
     scaler = RunningScaler()
     class_counts: Counter = Counter()
@@ -107,10 +106,10 @@ def main() -> None:
         _, y_chunk = prepare_chunk(chunk, scaler, fitted=False)
         class_counts.update(y_chunk)
         rows_pass1 += len(chunk)
-        print(f"  [scaler] chunk {i:>4d}  |  rows so far: {rows_pass1:>9,}")
+        logger.info("  [scaler] chunk %4d  |  rows so far: %9s", i, f"{rows_pass1:,}")
 
-    print(f"  ✓ Scaler fitted on {rows_pass1:,} rows  "
-          f"({scaler.mean.shape[0]} numeric features)")
+    logger.info("  [OK] Scaler fitted on %s rows (%d numeric features)",
+                f"{rows_pass1:,}", scaler.mean.shape[0])
 
     # --- Compute balanced class weights from observed distribution --------
     # Formula: weight_c = n_samples / (n_classes * count_c)
@@ -122,14 +121,13 @@ def main() -> None:
         for cls in ALL_CLASSES
     }
 
-    print(f"  Class counts (Train.txt): {dict(class_counts)}")
-    print(f"  Balanced class weights:   {CLASS_WEIGHTS}\n")
+    logger.info("  Class counts (Train.txt): %s", dict(class_counts))
+    logger.info("  Balanced class weights:   %s", CLASS_WEIGHTS)
 
     # === PASS 2 — Incremental training (multi-epoch) ======================
-    print("=" * 60)
-    print(f"PASS 2 / 2 — Training SGDClassifier (partial_fit, "
-          f"{N_EPOCHS} epochs)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("PASS 2 / 2 — Training SGDClassifier (partial_fit, %d epochs)", N_EPOCHS)
+    logger.info("=" * 60)
 
     model = SGDClassifier(
         loss="log_loss",
@@ -145,18 +143,18 @@ def main() -> None:
             model.partial_fit(X, y, classes=ALL_CLASSES,
                               sample_weight=sample_weight)
             rows_epoch += len(chunk)
-            print(f"  [train]  epoch {epoch}/{N_EPOCHS}  |  "
-                  f"chunk {i:>4d}  |  rows so far: {rows_epoch:>9,}")
-        print(f"  ✓ Epoch {epoch}/{N_EPOCHS} complete — "
-              f"{rows_epoch:,} rows\n")
+            logger.info("  [train]  epoch %d/%d  |  chunk %4d  |  rows so far: %9s",
+                        epoch, N_EPOCHS, i, f"{rows_epoch:,}")
+        logger.info("  [OK] Epoch %d/%d complete — %s rows",
+                    epoch, N_EPOCHS, f"{rows_epoch:,}")
 
-    print(f"  ✓ Training complete — {N_EPOCHS} epochs "
-          f"× {rows_epoch:,} rows\n")
+    logger.info("  [OK] Training complete — %d epochs x %s rows",
+                N_EPOCHS, f"{rows_epoch:,}")
 
     # === EVALUATION on test set ===========================================
-    print("=" * 60)
-    print("Evaluating on test set (chunked)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Evaluating on test set (chunked)")
+    logger.info("=" * 60)
 
     all_y_true: list[np.ndarray] = []
     all_y_pred: list[np.ndarray] = []
@@ -168,28 +166,27 @@ def main() -> None:
         all_y_true.append(y)
         all_y_pred.append(preds)
         rows_test += len(chunk)
-        print(f"  [eval]   chunk {i:>4d}  |  rows so far: {rows_test:>9,}")
+        logger.info("  [eval]   chunk %4d  |  rows so far: %9s", i, f"{rows_test:,}")
 
     y_true = np.concatenate(all_y_true)
     y_pred = np.concatenate(all_y_pred)
 
-    print(f"\n  ✓ Evaluated on {rows_test:,} test rows\n")
+    logger.info("  [OK] Evaluated on %s test rows", f"{rows_test:,}")
 
     # --- Classification report ---
-    report = classification_report(y_true, y_pred, target_names=ALL_CLASSES)
+    report_dict = classification_report(
+        y_true, y_pred, target_names=ALL_CLASSES, output_dict=True, zero_division=0,
+    )
     print("=" * 60)
     print("Classification Report")
     print("=" * 60)
-    print(report)
+    print(classification_report(y_true, y_pred, target_names=ALL_CLASSES, zero_division=0))
 
     # --- Call out minority-class recall ---
-    per_class = classification_report(
-        y_true, y_pred, target_names=ALL_CLASSES, output_dict=True,
-    )
     for cls in ("U2R", "R2L"):
-        if cls in per_class:
-            recall = per_class[cls]["recall"]
-            print(f"  ⚠  {cls} recall: {recall:.4f}")
+        if cls in report_dict:
+            recall = report_dict[cls]["recall"]
+            logger.info("  >> %s recall: %.4f", cls, recall)
 
     # --- Confusion matrix ---
     cm = confusion_matrix(y_true, y_pred, labels=ALL_CLASSES)
@@ -197,22 +194,39 @@ def main() -> None:
     print(cm)
 
     # === SAVE ARTEFACTS ===================================================
-    print("\n" + "=" * 60)
-    print("Saving artefacts")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Saving artefacts")
+    logger.info("=" * 60)
 
     joblib.dump(model, "model_ooc.pkl")
-    print("  → model_ooc.pkl")
+    logger.info("  -> model_ooc.pkl")
 
     preprocessor_state = {
         "scaler": scaler,
         "category_values": CATEGORY_VALUES,
     }
     joblib.dump(preprocessor_state, "preprocessor_ooc.pkl")
-    print("  → preprocessor_ooc.pkl")
+    logger.info("  -> preprocessor_ooc.pkl")
 
     elapsed = time.perf_counter() - t_start
-    print(f"\n  Done in {elapsed:.1f}s")
+
+    os.makedirs("results", exist_ok=True)
+    ooc_report_payload = {
+        "model": "SGDClassifier",
+        "epochs": N_EPOCHS,
+        "chunksize": CHUNKSIZE,
+        "macro_f1": round(report_dict.get("macro avg", {}).get("f1-score", 0.0), 4),
+        "u2r_recall": round(report_dict.get("U2R", {}).get("recall", 0.0), 4),
+        "r2l_recall": round(report_dict.get("R2L", {}).get("recall", 0.0), 4),
+        "elapsed_seconds": round(elapsed, 2),
+        "classification_report": report_dict,
+        "confusion_matrix": cm.tolist(),
+    }
+    with open("results/ooc_evaluation_report.json", "w") as f:
+        json.dump(ooc_report_payload, f, indent=2)
+    logger.info("  -> results/ooc_evaluation_report.json")
+
+    logger.info("  Done in %.1fs", elapsed)
 
 
 if __name__ == "__main__":

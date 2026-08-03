@@ -4,53 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from preprocessing import load_column_names, get_attack_category_map
+
 # %% Cell 2 — Load NSL-KDD Dataset
 # Standard 41 feature names for the NSL-KDD dataset
-column_names = [
-    "duration",
-    "protocol_type",
-    "service",
-    "flag",
-    "src_bytes",
-    "dst_bytes",
-    "land",
-    "wrong_fragment",
-    "urgent",
-    "hot",
-    "num_failed_logins",
-    "logged_in",
-    "num_compromised",
-    "root_shell",
-    "su_attempted",
-    "num_root",
-    "num_file_creations",
-    "num_shells",
-    "num_access_files",
-    "num_outbound_cmds",
-    "is_host_login",
-    "is_guest_login",
-    "count",
-    "srv_count",
-    "serror_rate",
-    "srv_serror_rate",
-    "rerror_rate",
-    "srv_rerror_rate",
-    "same_srv_rate",
-    "diff_srv_rate",
-    "srv_diff_host_rate",
-    "dst_host_count",
-    "dst_host_srv_count",
-    "dst_host_same_srv_rate",
-    "dst_host_diff_srv_rate",
-    "dst_host_same_src_port_rate",
-    "dst_host_srv_diff_host_rate",
-    "dst_host_serror_rate",
-    "dst_host_srv_serror_rate",
-    "dst_host_rerror_rate",
-    "dst_host_srv_rerror_rate",
-    "attack_type",
-    "difficulty_level",
-]
+column_names = load_column_names()
 
 # Load training and test sets (no header row in source files)
 df_train = pd.read_csv("NSL_Dataset/Train.txt", names=column_names, header=None)
@@ -65,62 +23,16 @@ print(f"Combined shape:     {df.shape}")
 df.head()
 
 # %% Cell 3 — Attack-Type to Category Mapping
-attack_category_map = {
-    # Normal
-    "normal": "Normal",
-    # DOS attacks
-    "back": "DOS",
-    "land": "DOS",
-    "neptune": "DOS",
-    "pod": "DOS",
-    "smurf": "DOS",
-    "teardrop": "DOS",
-    "mailbomb": "DOS",
-    "apache2": "DOS",
-    "processtable": "DOS",
-    "udpstorm": "DOS",
-    # PROBE attacks
-    "ipsweep": "PROBE",
-    "nmap": "PROBE",
-    "portsweep": "PROBE",
-    "satan": "PROBE",
-    "mscan": "PROBE",
-    "saint": "PROBE",
-    # R2L attacks
-    "ftp_write": "R2L",
-    "guess_passwd": "R2L",
-    "imap": "R2L",
-    "multihop": "R2L",
-    "phf": "R2L",
-    "spy": "R2L",
-    "warezclient": "R2L",
-    "warezmaster": "R2L",
-    "sendmail": "R2L",
-    "named": "R2L",
-    "snmpgetattack": "R2L",
-    "snmpguess": "R2L",
-    "xlock": "R2L",
-    "xsnoop": "R2L",
-    "worm": "R2L",
-    "httptunnel": "R2L",
-    # U2R attacks
-    "buffer_overflow": "U2R",
-    "loadmodule": "U2R",
-    "perl": "U2R",
-    "rootkit": "U2R",
-    "xterm": "U2R",
-    "ps": "U2R",
-    "sqlattack": "U2R",
-}
+attack_category_map = get_attack_category_map()
 
 df["category"] = df["attack_type"].map(attack_category_map)
 
 # Check for any unmapped attack types
 unmapped = df[df["category"].isna()]["attack_type"].unique()
 if len(unmapped) > 0:
-    print(f"⚠ Unmapped attack types: {unmapped}")
+    print(f"[!] Unmapped attack types: {unmapped}")
 else:
-    print("✓ All attack types mapped successfully.")
+    print("[OK] All attack types mapped successfully.")
 
 df[["attack_type", "category"]].drop_duplicates().sort_values("category")
 

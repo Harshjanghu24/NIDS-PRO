@@ -7,13 +7,18 @@ the full dataset in memory.  It is the OOC counterpart of preprocessing.py:
   instead of fitting a OneHotEncoder on the full file.
 - Numeric scaling uses Welford's online algorithm (RunningScaler) to
   accumulate mean/variance across arbitrarily many chunks.
-
-Must stay in sync with the column list and attack-type mapping defined in
-preprocessing.py / eda.py.
+- Attack-type → category mapping is imported from preprocessing.py to
+  maintain a single source of truth.
 """
 
 import numpy as np
 import pandas as pd
+
+from preprocessing import (
+    CATEGORICAL_COLS,
+    NON_FEATURE_COLS,
+    get_attack_category_map,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -127,8 +132,12 @@ class RunningScaler:
     # ---- fitting ---------------------------------------------------------
 
     def update(self, chunk: pd.DataFrame) -> None:
-        """Incorporate a new chunk of numeric data into the running stats."""
+        """Incorporate a new chunk of numeric data into the running stats using
+        vectorized batch Welford's algorithm for high performance."""
         values = chunk.values.astype(np.float64)
+        chunk_n = values.shape[0]
+        if chunk_n == 0:
+            return
 
         if self.mean is None:
             # First chunk — initialise accumulators
@@ -136,12 +145,19 @@ class RunningScaler:
             self.mean = np.zeros(values.shape[1], dtype=np.float64)
             self.M2 = np.zeros(values.shape[1], dtype=np.float64)
 
-        for row in values:
-            self.n += 1
-            delta = row - self.mean
-            self.mean += delta / self.n
-            delta2 = row - self.mean
-            self.M2 += delta * delta2
+        chunk_mean = np.mean(values, axis=0)
+        chunk_M2 = np.sum((values - chunk_mean) ** 2, axis=0)
+
+        if self.n == 0:
+            self.n = chunk_n
+            self.mean = chunk_mean
+            self.M2 = chunk_M2
+        else:
+            new_n = self.n + chunk_n
+            delta = chunk_mean - self.mean
+            self.mean = self.mean + delta * (chunk_n / new_n)
+            self.M2 = self.M2 + chunk_M2 + (delta ** 2) * (self.n * chunk_n / new_n)
+            self.n = new_n
 
     @property
     def variance(self) -> np.ndarray:
@@ -178,61 +194,11 @@ class RunningScaler:
 
 
 # ---------------------------------------------------------------------------
-# 4. Attack-type → category mapping (identical to preprocessing.py)
+# 4. Attack-type → category mapping
 # ---------------------------------------------------------------------------
-
-def get_attack_category_map() -> dict[str, str]:
-    """Return the attack_type → category mapping (5 classes).
-
-    Classes: Normal, DOS, PROBE, R2L, U2R.
-    """
-    return {
-        # Normal
-        "normal": "Normal",
-        # DOS attacks
-        "back": "DOS",
-        "land": "DOS",
-        "neptune": "DOS",
-        "pod": "DOS",
-        "smurf": "DOS",
-        "teardrop": "DOS",
-        "mailbomb": "DOS",
-        "apache2": "DOS",
-        "processtable": "DOS",
-        "udpstorm": "DOS",
-        # PROBE attacks
-        "ipsweep": "PROBE",
-        "nmap": "PROBE",
-        "portsweep": "PROBE",
-        "satan": "PROBE",
-        "mscan": "PROBE",
-        "saint": "PROBE",
-        # R2L attacks
-        "ftp_write": "R2L",
-        "guess_passwd": "R2L",
-        "imap": "R2L",
-        "multihop": "R2L",
-        "phf": "R2L",
-        "spy": "R2L",
-        "warezclient": "R2L",
-        "warezmaster": "R2L",
-        "sendmail": "R2L",
-        "named": "R2L",
-        "snmpgetattack": "R2L",
-        "snmpguess": "R2L",
-        "xlock": "R2L",
-        "xsnoop": "R2L",
-        "worm": "R2L",
-        "httptunnel": "R2L",
-        # U2R attacks
-        "buffer_overflow": "U2R",
-        "loadmodule": "U2R",
-        "perl": "U2R",
-        "rootkit": "U2R",
-        "xterm": "U2R",
-        "ps": "U2R",
-        "sqlattack": "U2R",
-    }
+# Imported from preprocessing.py (single source of truth).
+# get_attack_category_map is re-exported so train_model_ooc.py can import it
+# from this module without changing its existing import line.
 
 
 # ---------------------------------------------------------------------------
@@ -240,10 +206,10 @@ def get_attack_category_map() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 # Columns excluded from the feature set
-_NON_FEATURE_COLS = {"attack_type", "category", "difficulty_level"}
+_NON_FEATURE_COLS = set(NON_FEATURE_COLS)
 
 # Categorical columns handled by one-hot encoding
-_CATEGORICAL_COLS = set(CATEGORY_VALUES.keys())
+_CATEGORICAL_COLS = set(CATEGORICAL_COLS)
 
 
 def _numeric_columns(chunk: pd.DataFrame) -> list[str]:

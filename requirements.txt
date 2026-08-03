@@ -1,9 +1,9 @@
-﻿pandas
-numpy
-scikit-learn
-matplotlib
-seaborn
-flask
-xgboost
-joblib
-gunicorn
+# Production dependencies for the Flask web application.
+# Pin major.minor to allow patch updates for bug fixes.
+
+flask>=3.1,<4.0
+pandas>=2.2,<4.0
+numpy>=2.0,<3.0
+scikit-learn>=1.5,<2.0
+xgboost>=2.1,<4.0
+gunicorn>=22.0,<24.0
