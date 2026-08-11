@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: nids_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nids_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nids_password}
+      POSTGRES_DB: ${POSTGRES_DB:-nids_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nids_user} -d ${POSTGRES_DB:-nids_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nids_redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nids_fastapi
+    restart: always
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - APP_NAME=${APP_NAME:-NIDS-Platform}
+      - APP_VERSION=${APP_VERSION:-2.0.0-DRAFT}
+      - DEBUG=${DEBUG:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-nids_user}:${POSTGRES_PASSWORD:-nids_password}@postgres:5432/${POSTGRES_DB:-nids_db}
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  react:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nids_react
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - fastapi
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: nids_internal_net

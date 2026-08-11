@@ -1,18 +1,21 @@
-FROM python:3.12-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install dependencies first (layer caching — only re-runs when
-# requirements.txt changes, not on every code edit)
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpcap-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the production code (filtered by .dockerignore)
+# Copy application code
 COPY . .
 
-EXPOSE 5000
+EXPOSE 8000
 
-# Use gunicorn as the production WSGI server.
-# This replaces `python app.py`'s built-in development server,
-# which Flask itself warns should not be used in production.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
