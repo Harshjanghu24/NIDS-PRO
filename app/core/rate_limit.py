@@ -45,6 +45,8 @@ class LoginRateLimitMiddleware(BaseHTTPMiddleware):
         return self._check_local(client_ip)
 
     async def _check_redis(self, client_ip: str) -> bool:
+        if redis_client is None:
+            return self._check_local(client_ip)
         key = f"rate:login:{client_ip}"
         try:
             current = await redis_client.incr(key)
