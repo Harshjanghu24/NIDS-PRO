@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -8,12 +9,12 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
     Text,
     func,
-    Index,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship

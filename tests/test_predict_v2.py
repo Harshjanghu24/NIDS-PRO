@@ -24,7 +24,6 @@ from app.infrastructure.repositories.user_repository import UserRepository
 from app.main import app
 from app.services.model_loader import _loaded
 
-
 # ── Fake model artifacts for testing ──
 
 def _build_fake_model():

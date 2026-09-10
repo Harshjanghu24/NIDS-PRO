@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 # ── 41 NSL-KDD Feature Names (excludes attack_type and difficulty_level) ──
 
 NSL_KDD_FEATURES: list[str] = [

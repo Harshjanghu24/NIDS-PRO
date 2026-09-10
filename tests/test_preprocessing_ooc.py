@@ -2,7 +2,9 @@
 
 import numpy as np
 import pandas as pd
+
 from preprocessing_ooc import RunningScaler, manual_one_hot_encode
+
 
 def test_running_scaler_vectorized_update():
     """Test RunningScaler mean and variance computation across chunks."""

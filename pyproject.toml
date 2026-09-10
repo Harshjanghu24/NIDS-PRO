@@ -1,12 +1,11 @@
 [tool.ruff]
 force-exclude = true
-
 exclude = [
-    ".venv",
-    "venv",
     "v1_reference",
-    "v1_reference/*",
-    "v1_reference/**",
     "preprocessing.py",
     "preprocessing_ooc.py",
 ]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

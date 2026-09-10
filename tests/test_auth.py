@@ -23,7 +23,6 @@ from app.infrastructure.repositories.role_repository import RoleRepository
 from app.infrastructure.repositories.user_repository import UserRepository
 from app.main import app
 
-
 # ── Fixtures ──
 
 
@@ -313,8 +312,10 @@ async def test_refresh_invalid_sub_returns_401(auth_client: AsyncClient):
     """A refresh token whose 'sub' is not a valid UUID must return 401, not 500."""
 
     # Craft a token with a non-UUID sub claim
-    import jwt as pyjwt
     from datetime import datetime, timedelta, timezone
+
+    import jwt as pyjwt
+
     from app.core.config import settings
 
     bad_payload = {
@@ -337,6 +338,7 @@ async def test_refresh_invalid_sub_returns_401(auth_client: AsyncClient):
 async def test_cookie_secure_flag_reflects_environment(auth_client: AsyncClient, seeded_user: User):
     """The refresh cookie 'secure' attribute should be True only in production."""
     from unittest.mock import patch
+
     from app.core.config import settings
 
     # In development (default), cookie should NOT be secure

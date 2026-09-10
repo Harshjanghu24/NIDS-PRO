@@ -1,6 +1,5 @@
 import uuid as _uuid
 
-from app.core.config import settings
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.api.dependencies import (
@@ -16,6 +15,7 @@ from app.api.v2.schemas.auth import (
     TokenResponse,
     UserOut,
 )
+from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,

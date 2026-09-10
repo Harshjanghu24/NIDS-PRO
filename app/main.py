@@ -1,17 +1,18 @@
+import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import uuid
 
-from app.core.config import settings
-from app.core.logging import logger
-from app.core.database import AsyncSessionLocal, init_redis_pool, close_redis_pool
-from app.core.rate_limit import LoginRateLimitMiddleware
-from app.api.v2.router import api_v2_router
 from app.api.v2.health import router as health_router
-from app.services.model_loader import register_v1_model, load_active_model
+from app.api.v2.router import api_v2_router
+from app.core.config import settings
+from app.core.database import AsyncSessionLocal, close_redis_pool, init_redis_pool
+from app.core.logging import logger
+from app.core.rate_limit import LoginRateLimitMiddleware
+from app.services.model_loader import load_active_model, register_v1_model
 
 
 @asynccontextmanager

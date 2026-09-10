@@ -22,8 +22,8 @@ from app.api.v2.schemas.prediction import (
     BatchRowPrediction,
     CategoryCount,
     FlowHistoryItem,
-    PredictRequest,
     PredictionHistoryResponse,
+    PredictRequest,
     ShapContribution,
     SinglePredictionResponse,
 )

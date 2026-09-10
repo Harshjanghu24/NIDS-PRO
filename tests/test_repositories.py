@@ -1,13 +1,15 @@
+import uuid
+
 import pytest
 import pytest_asyncio
-import uuid
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.database import Base
-from app.infrastructure.repositories.user_repository import UserRepository
-from app.infrastructure.repositories.role_repository import RoleRepository
+from app.infrastructure.repositories.audit_repository import AuditRepository
 from app.infrastructure.repositories.model_repository import ModelRepository
 from app.infrastructure.repositories.prediction_repository import PredictionRepository
-from app.infrastructure.repositories.audit_repository import AuditRepository
+from app.infrastructure.repositories.role_repository import RoleRepository
+from app.infrastructure.repositories.user_repository import UserRepository
 
 
 @pytest_asyncio.fixture

@@ -1,7 +1,8 @@
+import redis.asyncio as aioredis
 from fastapi import APIRouter, status
 from pydantic import BaseModel
 from sqlalchemy import text
-import redis.asyncio as aioredis
+
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, redis_client
 from app.core.logging import logger
