@@ -2,6 +2,8 @@
 force-exclude = true
 
 exclude = [
+    ".venv",
+    "venv",
     "v1_reference",
     "v1_reference/*",
     "v1_reference/**",

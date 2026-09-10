@@ -26,7 +26,7 @@ jobs:
           pip install ruff mypy -r requirements.txt
 
       - name: Run Ruff Code Formatter & Linter
-        run: ruff check . --force-exclude
+        run: ruff check app tests alembic
 
       - name: Run Mypy Type Checker
         run: mypy app --ignore-missing-imports

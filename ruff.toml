@@ -1,11 +1,11 @@
 # Ruff configuration for NIDS Platform
-# Excludes legacy V1 reference files from linting.
-# These files are preserved for historical reference but are not part of the
-# active V2 FastAPI architecture and should not be reformatted.
+# Excludes legacy V1 reference files and environment folders from lint scope.
 
 force-exclude = true
 
 exclude = [
+    ".venv",
+    "venv",
     "v1_reference",
     "v1_reference/*",
     "v1_reference/**",
