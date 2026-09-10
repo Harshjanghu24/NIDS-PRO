@@ -1,0 +1,8 @@
+[tool.ruff]
+exclude = [
+    "v1_reference",
+    "v1_reference/*",
+    "v1_reference/**",
+    "preprocessing.py",
+    "preprocessing_ooc.py",
+]

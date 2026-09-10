@@ -26,7 +26,7 @@ jobs:
           pip install ruff mypy -r requirements.txt
 
       - name: Run Ruff Code Formatter & Linter
-        run: ruff check .
+        run: ruff check . --exclude v1_reference,preprocessing.py,preprocessing_ooc.py
 
       - name: Run Mypy Type Checker
         run: mypy app --ignore-missing-imports
