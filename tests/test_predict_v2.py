@@ -6,8 +6,6 @@ Tests cover: single prediction (valid/missing features), batch prediction
 enforcement on all three endpoints (401 without token, 403 with wrong role).
 """
 
-import io
-import os
 import uuid
 from unittest.mock import MagicMock, patch
 
@@ -17,7 +15,6 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.api.dependencies import get_current_user, require_role
 from app.api.v2.schemas.prediction import NSL_KDD_FEATURES
 from app.core.database import Base, get_db_session
 from app.core.security import create_access_token, hash_password
@@ -25,7 +22,7 @@ from app.infrastructure.repositories.models import User
 from app.infrastructure.repositories.role_repository import RoleRepository
 from app.infrastructure.repositories.user_repository import UserRepository
 from app.main import app
-from app.services.model_loader import LoadedModel, _loaded
+from app.services.model_loader import _loaded
 
 
 # ── Fake model artifacts for testing ──

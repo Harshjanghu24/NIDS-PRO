@@ -7,17 +7,14 @@ GET  /api/v2/predict/history — paginated prediction history for the user
 
 import io
 import time
-from typing import Union
 
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import (
     get_current_user,
     get_prediction_repository,
-    require_role,
 )
 from app.api.v2.schemas.prediction import (
     NSL_KDD_FEATURES,
@@ -30,7 +27,6 @@ from app.api.v2.schemas.prediction import (
     ShapContribution,
     SinglePredictionResponse,
 )
-from app.core.database import get_db_session
 from app.infrastructure.repositories.models import User
 from app.infrastructure.repositories.prediction_repository import PredictionRepository
 from app.services.model_loader import LoadedModel, get_loaded_model

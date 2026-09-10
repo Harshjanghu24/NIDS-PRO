@@ -18,7 +18,7 @@ class ModelRepository(BaseRepository[ModelArtifact]):
     async def get_active_model(self) -> Optional[ModelArtifact]:
         """Fetch the currently active classification model artifact."""
         result = await self.session.execute(
-            select(ModelArtifact).where(ModelArtifact.is_active == True)
+            select(ModelArtifact).where(ModelArtifact.is_active.is_(True))
         )
         return result.scalar_one_or_none()
 

@@ -6,7 +6,6 @@ protected route (GET /auth/me) access with/without token,
 role-restricted route access, and audit logging of failed logins.
 """
 
-import uuid
 
 import pytest
 import pytest_asyncio
@@ -14,14 +13,10 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.api.dependencies import (
-    get_audit_repository,
-    get_current_user,
-    get_role_repository,
-    get_user_repository,
     require_role,
 )
 from app.core.database import Base, get_db_session
-from app.core.security import create_access_token, hash_password
+from app.core.security import hash_password
 from app.infrastructure.repositories.audit_repository import AuditRepository
 from app.infrastructure.repositories.models import User
 from app.infrastructure.repositories.role_repository import RoleRepository
@@ -74,7 +69,7 @@ async def seeded_user(db_session: AsyncSession):
     user_repo = UserRepository(db_session)
 
     role = await role_repo.create(role_name="ANALYST", description="SOC Analyst")
-    viewer = await role_repo.create(role_name="VIEWER", description="Read-only")
+    _viewer = await role_repo.create(role_name="VIEWER", description="Read-only")
     user = await user_repo.create(
         username="testanalyst",
         email="analyst@test.com",
@@ -306,7 +301,7 @@ async def test_failed_login_audit_logged(auth_client: AsyncClient, db_session: A
 
     audit_repo = AuditRepository(db_session)
     logs = await audit_repo.get_by_user(seeded_user.id)
-    failed_logins = [l for l in logs if l.action_type == "LOGIN_FAILED"]
+    failed_logins = [entry for entry in logs if entry.action_type == "LOGIN_FAILED"]
     assert len(failed_logins) >= 1
 
 
@@ -316,7 +311,6 @@ async def test_failed_login_audit_logged(auth_client: AsyncClient, db_session: A
 @pytest.mark.asyncio
 async def test_refresh_invalid_sub_returns_401(auth_client: AsyncClient):
     """A refresh token whose 'sub' is not a valid UUID must return 401, not 500."""
-    from app.core.security import create_refresh_token
 
     # Craft a token with a non-UUID sub claim
     import jwt as pyjwt

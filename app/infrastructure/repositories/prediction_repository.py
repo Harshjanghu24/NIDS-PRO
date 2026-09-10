@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 import uuid
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.repositories.base import BaseRepository

@@ -2,8 +2,6 @@
 
 import pandas as pd
 from preprocessing import (
-    CATEGORICAL_COLS,
-    NON_FEATURE_COLS,
     build_preprocessor,
     get_attack_category_map,
     load_column_names,

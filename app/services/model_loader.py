@@ -12,10 +12,8 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import joblib
-import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.logging import logger
 from app.infrastructure.repositories.model_repository import ModelRepository
 

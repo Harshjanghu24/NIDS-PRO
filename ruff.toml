@@ -1,0 +1,13 @@
+# Ruff configuration for NIDS Platform
+# Excludes legacy V1 reference files from linting.
+# These files are preserved for historical reference but are not part of the
+# active V2 FastAPI architecture and should not be reformatted.
+
+exclude = [
+    # V1 Flask app, training, and EDA scripts (moved to subfolder)
+    "v1_reference/",
+
+    # V1 preprocessing modules still at root (imported by active V2 tests)
+    "preprocessing.py",
+    "preprocessing_ooc.py",
+]
