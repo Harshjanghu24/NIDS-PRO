@@ -1,4 +1,6 @@
 [tool.ruff]
+force-exclude = true
+
 exclude = [
     "v1_reference",
     "v1_reference/*",

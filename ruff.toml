@@ -3,6 +3,8 @@
 # These files are preserved for historical reference but are not part of the
 # active V2 FastAPI architecture and should not be reformatted.
 
+force-exclude = true
+
 exclude = [
     "v1_reference",
     "v1_reference/*",
