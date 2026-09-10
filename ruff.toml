@@ -5,7 +5,7 @@
 
 exclude = [
     # V1 Flask app, training, and EDA scripts (moved to subfolder)
-    "v1_reference/",
+    "v1_reference",
 
     # V1 preprocessing modules still at root (imported by active V2 tests)
     "preprocessing.py",
