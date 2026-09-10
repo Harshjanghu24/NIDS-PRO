@@ -29,7 +29,7 @@ jobs:
         run: ruff check app tests alembic
 
       - name: Run Mypy Type Checker
-        run: mypy app --ignore-missing-imports
+        run: mypy app --ignore-missing-imports --show-error-codes
 
   test:
     name: Automated Unit & Integration Tests
