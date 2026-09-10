@@ -1,4 +1,6 @@
 import uuid as _uuid
+
+from app.core.config import settings
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.api.dependencies import (
@@ -38,7 +40,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         key=_REFRESH_COOKIE,
         value=token,
         httponly=True,
-        secure=False,  # Set True in production behind HTTPS
+        secure=settings.ENVIRONMENT == "production",
         samesite="lax",
         max_age=_COOKIE_MAX_AGE,
         path="/api/v2/auth",
@@ -159,14 +161,14 @@ async def refresh(
 
     try:
         payload = decode_token(token)
+        if payload.get("type") != "refresh":
+            raise ValueError("Invalid token type")
+        user_id = _uuid.UUID(payload["sub"])
     except Exception:
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
-    if payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="Invalid token type")
-
-    user = await user_repo.get_by_id(_uuid.UUID(payload["sub"]))
+    user = await user_repo.get_by_id(user_id)
     if not user or not user.is_active:
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="User not found or inactive")

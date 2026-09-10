@@ -308,3 +308,59 @@ async def test_failed_login_audit_logged(auth_client: AsyncClient, db_session: A
     logs = await audit_repo.get_by_user(seeded_user.id)
     failed_logins = [l for l in logs if l.action_type == "LOGIN_FAILED"]
     assert len(failed_logins) >= 1
+
+
+# ── Refresh with invalid sub claim ──
+
+
+@pytest.mark.asyncio
+async def test_refresh_invalid_sub_returns_401(auth_client: AsyncClient):
+    """A refresh token whose 'sub' is not a valid UUID must return 401, not 500."""
+    from app.core.security import create_refresh_token
+
+    # Craft a token with a non-UUID sub claim
+    import jwt as pyjwt
+    from datetime import datetime, timedelta, timezone
+    from app.core.config import settings
+
+    bad_payload = {
+        "sub": "not-a-uuid",
+        "exp": datetime.now(timezone.utc) + timedelta(days=1),
+        "type": "refresh",
+    }
+    bad_token = pyjwt.encode(bad_payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    # Set the cookie manually and call /refresh
+    auth_client.cookies.set("refresh_token", bad_token, domain="testserver", path="/api/v2/auth")
+    resp = await auth_client.post("/api/v2/auth/refresh")
+    assert resp.status_code == 401, f"Expected 401 but got {resp.status_code}"
+
+
+# ── Cookie secure flag reflects ENVIRONMENT ──
+
+
+@pytest.mark.asyncio
+async def test_cookie_secure_flag_reflects_environment(auth_client: AsyncClient, seeded_user: User):
+    """The refresh cookie 'secure' attribute should be True only in production."""
+    from unittest.mock import patch
+    from app.core.config import settings
+
+    # In development (default), cookie should NOT be secure
+    resp_dev = await auth_client.post(
+        "/api/v2/auth/login",
+        json={"username": "testanalyst", "password": "Str0ngP@ss!"},
+    )
+    assert resp_dev.status_code == 200
+    set_cookie_dev = resp_dev.headers.get("set-cookie", "")
+    # "Secure" should NOT appear when ENVIRONMENT != "production"
+    assert "secure" not in set_cookie_dev.lower().split("httponly")[0].split("samesite")[0] or settings.ENVIRONMENT == "production"
+
+    # Patch ENVIRONMENT to "production" and verify secure flag appears
+    with patch.object(settings, "ENVIRONMENT", "production"):
+        resp_prod = await auth_client.post(
+            "/api/v2/auth/login",
+            json={"username": "testanalyst", "password": "Str0ngP@ss!"},
+        )
+        assert resp_prod.status_code == 200
+        set_cookie_prod = resp_prod.headers.get("set-cookie", "")
+        assert "secure" in set_cookie_prod.lower()
