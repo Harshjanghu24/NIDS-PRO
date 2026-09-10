@@ -26,7 +26,9 @@ jobs:
           pip install ruff mypy -r requirements.txt
 
       - name: Run Ruff Code Formatter & Linter
-        run: python -c "import subprocess, sys; res = subprocess.run(['ruff', 'check', 'app', 'tests', 'alembic'], capture_output=True, text=True); print('=== RUFF STDOUT ===\n' + res.stdout); print('=== RUFF STDERR ===\n' + res.stderr); sys.exit(res.returncode)"
+        run: |
+          python -c "import subprocess; res = subprocess.run(['ruff', 'check', 'app', 'tests', 'alembic'], capture_output=True, text=True); print('RUFF_ERRORS:\n' + res.stdout + res.stderr)"
+          ruff check app tests alembic
 
       - name: Run Mypy Type Checker
         run: mypy app --ignore-missing-imports
