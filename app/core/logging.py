@@ -2,6 +2,7 @@ import logging
 import sys
 
 import structlog
+from structlog.types import Processor
 
 from app.core.config import settings
 
@@ -12,7 +13,7 @@ def setup_logging() -> None:
     """
     log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
 
-    shared_processors = [
+    shared_processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
@@ -22,6 +23,7 @@ def setup_logging() -> None:
         structlog.processors.format_exc_info,
     ]
 
+    renderer: Processor
     if settings.ENVIRONMENT == "production":
         renderer = structlog.processors.JSONRenderer()
     else:
